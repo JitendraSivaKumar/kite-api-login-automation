@@ -1,0 +1,77 @@
+name: Kite API Login Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'Kite User ID'
+        required: true
+        type: string
+      password:
+        description: 'Kite Password'
+        required: true
+        type: string
+      api_key:
+        description: 'Kite API Key'
+        required: true
+        type: string
+      api_secret:
+        description: 'Kite API Secret'
+        required: true
+        type: string
+      totp_code:
+        description: 'TOTP Code (6 digits)'
+        required: true
+        type: string
+      callback_url:
+        description: 'Zoho Creator Callback URL'
+        required: true
+        type: string
+
+jobs:
+  kite-login:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium kiteconnect requests
+      
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@latest
+      
+      - name: Install ChromeDriver
+        run: |
+          CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
+          wget -q https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | grep -oP '"version":"\K[^"]+' | head -1)/linux64/chromedriver-linux64.zip
+          unzip -q chromedriver-linux64.zip
+          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+      
+      - name: Run Kite Login Automation
+        id: kite_login
+        run: |
+          python kite_login.py
+        env:
+          KITE_USER_ID: ${{ github.event.inputs.user_id }}
+          KITE_PASSWORD: ${{ github.event.inputs.password }}
+          KITE_API_KEY: ${{ github.event.inputs.api_key }}
+          KITE_API_SECRET: ${{ github.event.inputs.api_secret }}
+          KITE_TOTP: ${{ github.event.inputs.totp_code }}
+          CALLBACK_URL: ${{ github.event.inputs.callback_url }}
+      
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: screenshots/
